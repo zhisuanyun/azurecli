@@ -1,0 +1,233 @@
+{
+  "parameters": {
+    "diagnosticsStorageAccountType": {
+      "type": "String"
+    },
+    "subnetName": {
+      "type": "String"
+    },
+    "location": {
+      "type": "String"
+    },
+    "networkInterfaceName": {
+      "type": "String"
+    },
+    "adminUsername": {
+      "type": "String"
+    },
+    "virtualMachineName": {
+      "type": "String"
+    },
+    "diagnosticsStorageAccountId": {
+      "type": "String"
+    },
+    "virtualMachineSize": {
+      "type": "String"
+    },
+    "networkSecurityGroupName": {
+      "type": "String"
+    },
+    "availabilitySetName": {
+      "type": "String"
+    },
+    "availabilitySetPlatformUpdateDomainCount": {
+      "type": "String"
+    },
+    "diagnosticsStorageAccountName": {
+      "type": "String"
+    },
+    "publicIpAddressName": {
+      "type": "String"
+    },
+    "virtualNetworkName": {
+      "type": "String"
+    },
+    "addressPrefix": {
+      "type": "String"
+    },
+    "publicIpAddressType": {
+      "type": "String"
+    },
+    "subnetPrefix": {
+      "type": "String"
+    },
+    "adminPassword": {
+      "type": "SecureString"
+    },
+    "availabilitySetPlatformFaultDomainCount": {
+      "type": "String"
+    }
+  },
+  "contentVersion": "1.0.0.0",
+  "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "outputs": {
+    "adminUsername": {
+      "value": "[parameters('adminUsername')]",
+      "type": "String"
+    }
+  },
+  "variables": {
+    "subnetRef": "[concat(variables('vnetId'), '/subnets/', parameters('subnetName'))]",
+    "vnetId": "[resourceId('zskj-resource','Microsoft.Network/virtualNetworks', parameters('virtualNetworkName'))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Compute/virtualMachines",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[concat('Microsoft.Network/networkInterfaces/', parameters('networkInterfaceName'))]",
+        "[concat('Microsoft.Compute/availabilitySets/', parameters('availabilitySetName'))]",
+        "[concat('Microsoft.Storage/storageAccounts/', parameters('diagnosticsStorageAccountName'))]"
+      ],
+      "apiVersion": "2016-04-30-preview",
+      "name": "[parameters('virtualMachineName')]",
+      "properties": {
+        "diagnosticsProfile": {
+          "bootDiagnostics": {
+            "enabled": true,
+            "storageUri": "[reference(resourceId('zskj-resource', 'Microsoft.Storage/storageAccounts', parameters('diagnosticsStorageAccountName')), '2015-06-15').primaryEndpoints['blob']]"
+          }
+        },
+        "hardwareProfile": {
+          "vmSize": "[parameters('virtualMachineSize')]"
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', parameters('networkInterfaceName'))]"
+            }
+          ]
+        },
+        "osProfile": {
+          "adminUsername": "[parameters('adminUsername')]",
+          "computerName": "[parameters('virtualMachineName')]",
+          "adminPassword": "[parameters('adminPassword')]",
+          "windowsConfiguration": {
+            "provisionVmAgent": "true"
+          }
+        },
+        "storageProfile": {
+          "imageReference": {
+            "version": "latest",
+            "offer": "WindowsServer",
+            "sku": "2016-Datacenter-zhcn",
+            "publisher": "MicrosoftWindowsServer"
+          },
+          "osDisk": {
+            "createOption": "fromImage",
+            "managedDisk": {
+              "storageAccountType": "Premium_LRS"
+            }
+          },
+          "dataDisks": []
+        },
+        "availabilitySet": {
+          "id": "[resourceId('Microsoft.Compute/availabilitySets', parameters('availabilitySetName'))]"
+        }
+      }
+    },
+    {
+      "name": "[parameters('availabilitySetName')]",
+      "type": "Microsoft.Compute/availabilitySets",
+      "location": "[parameters('location')]",
+      "apiVersion": "2016-04-30-preview",
+      "properties": {
+        "platformUpdateDomainCount": "[parameters('availabilitySetPlatformUpdateDomainCount')]",
+        "platformFaultDomainCount": "[parameters('availabilitySetPlatformFaultDomainCount')]",
+        "managed": true
+      }
+    },
+    {
+      "name": "[parameters('diagnosticsStorageAccountName')]",
+      "type": "Microsoft.Storage/storageAccounts",
+      "location": "[parameters('location')]",
+      "apiVersion": "2015-06-15",
+      "properties": {
+        "accountType": "[parameters('diagnosticsStorageAccountType')]"
+      }
+    },
+    {
+      "name": "[parameters('virtualNetworkName')]",
+      "type": "Microsoft.Network/virtualNetworks",
+      "location": "[parameters('location')]",
+      "apiVersion": "2016-12-01",
+      "properties": {
+        "subnets": [
+          {
+            "name": "[parameters('subnetName')]",
+            "properties": {
+              "addressPrefix": "[parameters('subnetPrefix')]"
+            }
+          }
+        ],
+        "addressSpace": {
+          "addressPrefixes": [
+            "[parameters('addressPrefix')]"
+          ]
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Network/networkInterfaces",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[concat('Microsoft.Network/virtualNetworks/', parameters('virtualNetworkName'))]",
+        "[concat('Microsoft.Network/publicIpAddresses/', parameters('publicIpAddressName'))]",
+        "[concat('Microsoft.Network/networkSecurityGroups/', parameters('networkSecurityGroupName'))]"
+      ],
+      "apiVersion": "2016-09-01",
+      "name": "[parameters('networkInterfaceName')]",
+      "properties": {
+        "networkSecurityGroup": {
+          "id": "[resourceId('zskj-resource', 'Microsoft.Network/networkSecurityGroups', parameters('networkSecurityGroupName'))]"
+        },
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "publicIpAddress": {
+                "id": "[resourceId('zskj-resource','Microsoft.Network/publicIpAddresses', parameters('publicIpAddressName'))]"
+              },
+              "subnet": {
+                "id": "[variables('subnetRef')]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "[parameters('publicIpAddressName')]",
+      "type": "Microsoft.Network/publicIpAddresses",
+      "location": "[parameters('location')]",
+      "apiVersion": "2016-09-01",
+      "properties": {
+        "publicIpAllocationMethod": "[parameters('publicIpAddressType')]"
+      }
+    },
+    {
+      "name": "[parameters('networkSecurityGroupName')]",
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "location": "[parameters('location')]",
+      "apiVersion": "2016-09-01",
+      "properties": {
+        "securityRules": [
+          {
+            "name": "default-allow-rdp",
+            "properties": {
+              "protocol": "TCP",
+              "priority": 1000,
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "*",
+              "destinationPortRange": "3389",
+              "direction": "Inbound",
+              "access": "Allow",
+              "sourcePortRange": "*"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
